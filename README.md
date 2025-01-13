@@ -23,17 +23,17 @@ Export Genshin materials in `GOOD` format using the Hoyolab's enhancement progre
 2. Run `python main.py`
 
 ## Known Issues
-The script currently doesn't export the following materials. (Blame Hoyoverse for not including them in the enhancement progression calculator)
-- Adventurer's Experience
-- Wanderer's Advice
-- Fine Enhancement Ore
-- Enhancement Ore
+1. There's a delay of about 15-30 mins between obtaining the item in-game and being updated on Hoyolab's enhancement progression calculator.
+
+2. The script currently doesn't export the following materials. (Blame Hoyoverse for not including them in the enhancement progression calculator)
+    - Adventurer's Experience
+    - Wanderer's Advice
+    - Fine Enhancement Ore
+    - Enhancement Ore
 
 ## FAQ
 
 Why should I use this?
 - You don't need to.
 - This is just my personal project for updating my materials tracker since I'm too lazy to use scanners and haven't found any website that automatically updates the materials for me.
-
-Okay, I want to use this. What does it do?
-- It exports the materials from your inventory in a `GOOD` format so you can import it into various tracker websites or apps.
+- https://seelie.me/ tries to do the same way but their calculation gives false results.
