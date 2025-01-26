@@ -24,24 +24,41 @@ class ItemType:
 
 class HoyoLab:
 
-    BASE_CALCULATE_URL = "https://sg-public-api.hoyolab.com/event/calculateos/"
-    AVATAR_LIST = BASE_CALCULATE_URL + "avatar/list"
-    WEAPON_LIST = BASE_CALCULATE_URL + "weapon/list"
-    BATCH_COMPUTE = BASE_CALCULATE_URL + "batch_compute"
+    BASE_CALCULATE_URL = "https://sg-public-api.hoyolab.com/event/{event_path}/"
+    AVATAR_LIST = "v1/avatar/list"
+    WEAPON_LIST = "v1/weapon/list"
+    BATCH_COMPUTE = "v3/batch_compute"
 
     def __init__(self, cookies: str, uid: str, region: str = "os_asia", logging_level: int = logging.INFO):
         self.headers = {
             "cookie": cookies,
-            "User-Agent": "NepScript/1.0"
+            "User-Agent": "NepScript/1.0",
+            "Referer": "https://act.hoyolab.com/"
         }
         self.uid = uid
         self.region = region
 
         self._setup_logger(logging_level)
+        self._fetch_api_path()
         self.logger.info("HoyoLab initialized")
         self.logger.debug(f"Cookies: {cookies}")
         self.logger.debug(f"UID: {uid}")
         self.logger.debug(f"Region: {region}")
+        self.logger.debug(f"Calculate URL: {self.BASE_CALCULATE_URL}")
+
+    def _fetch_api_path(self):
+        text = requests.get("https://act.hoyolab.com/ys/event/calculator-sea/index.html#/").text
+        match = re.findall(r"\<script type=\"text/javascript\" src=\"(.*?.js)\"\>", text)
+        if not match:
+            raise HoyoLabException("Could not find bundle JS file")
+
+        js_url = f"https://act.hoyolab.com/ys/event/calculator-sea/{match[1]}"
+        js_text = requests.get(js_url).text
+        match = re.search(r"g=\"/event/(.*?calculate)", js_text)
+        if not match:
+            raise HoyoLabException("Could not find calculate path")
+
+        self.BASE_CALCULATE_URL = self.BASE_CALCULATE_URL.format(event_path=match.group(1))
 
     def _setup_logger(self, level: int):
         self.logger = logging.getLogger("GenshinMats")
@@ -65,11 +82,11 @@ class HoyoLab:
             raise HoyoLabException("Either the UID or Cookies are invalid.")
         return data["data"]
 
-    def _get(self, url: str, body: dict, headers: dict):
-        return self._req(url, body, headers, "GET")
+    def _get(self, path: str, body: dict, headers: dict):
+        return self._req(self.BASE_CALCULATE_URL + path, body, headers, "GET")
 
-    def _post(self, url: str, body: dict, headers: dict):
-        return self._req(url, body, headers, "POST")
+    def _post(self, path: str, body: dict, headers: dict):
+        return self._req(self.BASE_CALCULATE_URL + path, body, headers, "POST")
 
     def _get_all_items(self, type: ItemType):
         body = {"element_attr_ids": [], "weapon_cat_ids": [], "page": 1, "size": 999, "is_all": True, "lang": "en-us"}
@@ -118,6 +135,11 @@ class HoyoLab:
         self.logger.info("Finding minimum entities needed to cover all materials")
 
         item_materials_dict_copy = deepcopy(item_materials_dict)
+
+        # Remove Travelers
+        item_materials_dict_copy.pop("10000005")  # Remove Aether
+        item_materials_dict_copy.pop("10000007")  # Remove Lumine
+
         all_materials = set()
         for materials in item_materials_dict_copy.values():
             all_materials.update(set(materials))
@@ -173,7 +195,7 @@ class HoyoLab:
 
         response = self.calculate(avatar_body + weapon_body)
         item_materials_dict = {
-            item["id"]: {material["id"] for material in (item_mat["avatar_consume"] + item_mat["avatar_skill_consume"] + item_mat["weapon_consume"])}
+            str(item["id"]): {material["id"] for material in (item_mat["avatar_consume"] + item_mat["avatar_skill_consume"] + item_mat["weapon_consume"])}
             for item, item_mat in zip(self.avatars + self.weapons, response["items"])
         }
         item_materials_dict = {item: sorted(list(materials)) for item, materials in item_materials_dict.items()}
@@ -258,20 +280,20 @@ class HoyoLab:
         sorted_cleaned_items = sorted(cleaned_items.values(), key=lambda x: x["id"], reverse=True)
         material_groups = defaultdict(list)
 
-        four_tiers = material_groups[4]
-        three_tiers = material_groups[3]
+        four_items = material_groups[4]
+        three_items = material_groups[3]
 
         for item in sorted_cleaned_items:
             item_id = item["id"]
             # > 114000 is for weapon ascension materials
-            # 104100 < item_id < 104300 is for ascension gems
+            # 104100 < item_id < 104300 is for gems
             if item_id > 114000 or (104100 < item_id < 104300):
-                four_tiers.append(item)
+                four_items.append(item)
 
             # 104300 < item_id < 113000 is for books
             # 104319 is for Crown of Insight
             elif 104300 < item_id < 113000 and item_id != 104319:
-                three_tiers.append(item)
+                three_items.append(item)
 
         materials_group_to_check = [
             [d["good"] for d in material_groups[tier][i:i + tier]][::-1]
