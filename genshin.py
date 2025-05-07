@@ -54,7 +54,7 @@ class HoyoLab:
 
         js_url = f"https://act.hoyolab.com/ys/event/calculator-sea/{match[1]}"
         js_text = requests.get(js_url).text
-        match = re.search(r"g=\"/event/(.*?calculate)", js_text)
+        match = re.search(r'"/event/(.*?calculate)', js_text)
         if not match:
             raise HoyoLabException("Could not find calculate path")
 
