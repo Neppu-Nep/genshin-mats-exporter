@@ -48,11 +48,11 @@ class HoyoLab:
 
     def _fetch_api_path(self):
         text = requests.get("https://act.hoyolab.com/ys/event/calculator-sea/index.html#/").text
-        match = re.findall(r"\<script type=\"text/javascript\" src=\"(.*?.js)\"\>", text)
+        match = re.findall(r"\<script (?:type=\"text/javascript\")?src=\"(bundle.*?.js)\"\>", text)
         if not match:
             raise HoyoLabException("Could not find bundle JS file")
 
-        js_url = f"https://act.hoyolab.com/ys/event/calculator-sea/{match[1]}"
+        js_url = f"https://act.hoyolab.com/ys/event/calculator-sea/{match[-1]}"
         js_text = requests.get(js_url).text
         match = re.search(r'"/event/(.*?calculate)', js_text)
         if not match:
@@ -170,6 +170,11 @@ class HoyoLab:
         self.avatars = self.get_all_avatars()["list"]
         self.weapons = self.get_all_weapons()["list"]
 
+        # Filter out Mistral Wonderland characters
+        # 10000117: Manekin
+        # 10000118: Manekina
+        self.avatars = [avatar for avatar in self.avatars if avatar["id"] not in [10000117, 10000118]]
+
         json_path = pathlib.Path("genshin_mats.json")
         if json_path.exists():
             with open(json_path) as f:
@@ -180,7 +185,7 @@ class HoyoLab:
 
             self.logger.debug(f"Number of cached items: {len(data)}")
             self.logger.debug(f"Number of fetched items: {len(self.avatars) + len(self.weapons)}")
-            self.logger.debug(f"Number of traveler elements currently available: {int((traveler_dupe_count) / 2)}")
+            self.logger.debug(f"Number of traveler elements currently available: {(traveler_dupe_count) // 2}")
 
             if len(data) == len(self.avatars) + len(self.weapons) - traveler_dupe_count + 2:
                 self.logger.info("No new avatars or weapons, using cached data")
